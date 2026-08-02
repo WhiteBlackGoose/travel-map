@@ -1,0 +1,47 @@
+{
+  "name": "travel-map",
+  "version": "1.0.0",
+  "description": "Mark the countries and cities you have been to and share the map via link or QR code.",
+  "scripts": {
+    "build:data": "node scripts/build-data.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WhiteBlackGoose/travel-map.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/WhiteBlackGoose/travel-map/issues"
+  },
+  "homepage": "https://github.com/WhiteBlackGoose/travel-map#readme",
+  "devDependencies": {
+    "@types/d3-geo": "^3.1.1",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-transition": "^3.0.9",
+    "@types/d3-zoom": "^3.0.8",
+    "@types/node": "^26.1.2",
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5",
+    "shapefile": "^0.6.6",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "d3-drag": "^3.0.0",
+    "d3-geo": "^3.1.1",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
+    "d3-zoom": "^3.0.0"
+  },
+  "private": true
+}

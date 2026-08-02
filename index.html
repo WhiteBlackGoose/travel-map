@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Mark the countries and cities you have been to and share your travel map with a link."
+    />
+    <title>Travel Map</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%97%BA%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <h1 id="app-title">Travel Map</h1>
+        <p id="app-tagline" class="tagline"></p>
+        <div class="topbar-controls">
+          <label class="ctl">
+            <span id="lbl-lang" class="ctl-label"></span>
+            <select id="lang-select"></select>
+          </label>
+          <label class="ctl">
+            <span id="lbl-theme" class="ctl-label"></span>
+            <select id="theme-select"></select>
+          </label>
+        </div>
+      </header>
+
+      <div id="shared-banner" class="banner" hidden>
+        <div class="banner-text">
+          <strong id="banner-title"></strong>
+          <span id="banner-hint"></span>
+        </div>
+        <div class="banner-actions">
+          <button id="btn-adopt" type="button" class="btn btn-primary"></button>
+          <button id="btn-back" type="button" class="btn"></button>
+        </div>
+      </div>
+
+      <main class="layout">
+        <section class="map-panel">
+          <div id="map" class="map-host" role="application"></div>
+          <div class="map-controls">
+            <button id="zoom-in" type="button" class="btn btn-icon">+</button>
+            <button id="zoom-out" type="button" class="btn btn-icon">−</button>
+            <button id="zoom-reset" type="button" class="btn btn-icon">⤢</button>
+          </div>
+          <p id="map-status" class="map-status"></p>
+        </section>
+
+        <aside class="sidebar">
+          <div class="stats">
+            <div class="stat">
+              <span id="stat-countries" class="stat-num">0</span>
+              <span id="stat-countries-lbl" class="stat-lbl"></span>
+            </div>
+            <div class="stat">
+              <span id="stat-regions" class="stat-num">0</span>
+              <span id="stat-regions-lbl" class="stat-lbl"></span>
+            </div>
+            <div class="stat">
+              <span id="stat-cities" class="stat-num">0</span>
+              <span id="stat-cities-lbl" class="stat-lbl"></span>
+            </div>
+            <div class="stat">
+              <span id="stat-pct" class="stat-num">0%</span>
+              <span id="stat-pct-lbl" class="stat-lbl"></span>
+            </div>
+          </div>
+
+          <section class="card card-cities">
+            <h2 id="h-cities"></h2>
+            <div class="combo">
+              <input
+                id="city-input"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="city-results"
+              />
+              <ul id="city-results" class="results" role="listbox" hidden></ul>
+            </div>
+            <ul id="city-list" class="chips"></ul>
+          </section>
+
+          <section class="card card-places">
+            <h2 id="h-places"></h2>
+            <div id="place-list" class="chips-wrap"></div>
+          </section>
+
+          <section class="card card-share">
+            <h2 id="h-share"></h2>
+            <p id="share-hint" class="muted"></p>
+            <div class="share-row">
+              <input id="share-url" type="text" readonly />
+              <button id="btn-copy" type="button" class="btn btn-primary"></button>
+            </div>
+            <div class="share-row">
+              <button id="btn-reset" type="button" class="btn btn-danger"></button>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

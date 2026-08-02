@@ -1,0 +1,762 @@
+:root {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --panel-2: #eef1f6;
+  --text: #131820;
+  --muted: #5c6672;
+  --border: #dde2ea;
+  --accent: #0f766e;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+
+  --ocean: #e7ecf3;
+  --land: #cdd5e0;
+  --land-hover: #b8c2d1;
+  --land-stroke: #f4f6f9;
+  --visited: #0f766e;
+  --visited-hover: #12897f;
+  --partial: #7fc4bd;
+  --pin: #d1495b;
+  --pin-halo: #d1495b33;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1117;
+    --panel: #161b23;
+    --panel-2: #1d232d;
+    --text: #e6eaf0;
+    --muted: #97a1af;
+    --border: #2a323d;
+    --accent: #2dd4bf;
+    --accent-text: #06231f;
+    --danger: #f2777a;
+
+    --ocean: #121722;
+    --land: #2c3542;
+    --land-hover: #3a4553;
+    --land-stroke: #0e1117;
+    --visited: #2dd4bf;
+    --visited-hover: #5ee3d2;
+    --partial: #1f6f68;
+    --pin: #ff7a85;
+    --pin-halo: #ff7a8540;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Explicit choices win over the OS preference, in both directions. */
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --panel-2: #eef1f6;
+  --text: #131820;
+  --muted: #5c6672;
+  --border: #dde2ea;
+  --accent: #0f766e;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+  --ocean: #e7ecf3;
+  --land: #cdd5e0;
+  --land-hover: #b8c2d1;
+  --land-stroke: #f4f6f9;
+  --visited: #0f766e;
+  --visited-hover: #12897f;
+  --partial: #7fc4bd;
+  --pin: #d1495b;
+  --pin-halo: #d1495b33;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1117;
+  --panel: #161b23;
+  --panel-2: #1d232d;
+  --text: #e6eaf0;
+  --muted: #97a1af;
+  --border: #2a323d;
+  --accent: #2dd4bf;
+  --accent-text: #06231f;
+  --danger: #f2777a;
+  --ocean: #121722;
+  --land: #2c3542;
+  --land-hover: #3a4553;
+  --land-stroke: #0e1117;
+  --visited: #2dd4bf;
+  --visited-hover: #5ee3d2;
+  --partial: #1f6f68;
+  --pin: #ff7a85;
+  --pin-halo: #ff7a8540;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+#app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px clamp(12px, 3vw, 28px);
+  /* The page itself never scrolls; panes below manage their own overflow. */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.topbar,
+.banner {
+  flex: none;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.topbar h1 {
+  grid-column: 1;
+  margin: 0;
+  font-size: clamp(20px, 3vw, 26px);
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.topbar-controls {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ctl {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ctl-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+select,
+input[type="text"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  font: inherit;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 13px;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.btn:hover {
+  background: var(--panel-2);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+/* ---------- shared banner ---------- */
+
+/* `display` on a class beats the [hidden] default, so opt out explicitly. */
+[hidden] {
+  display: none !important;
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.banner-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.banner-text span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- layout ---------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 940px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.map-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: var(--shadow);
+}
+
+.map-host {
+  position: relative;
+  width: 100%;
+  /* Fills whatever height is left instead of forcing its own aspect ratio. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.map-status {
+  margin: 4px 8px 6px;
+  min-height: 1.2em;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.map-controls {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+/* ---------- map ---------- */
+
+svg.map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+svg.map .ocean {
+  fill: var(--ocean);
+}
+
+svg.map path.country,
+svg.map path.state {
+  fill: var(--land);
+  stroke: var(--land-stroke);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  transition: fill 0.12s ease;
+}
+
+svg.map path.country:hover,
+svg.map path.state:hover {
+  fill: var(--land-hover);
+}
+
+svg.map path.country.sel,
+svg.map path.state.sel {
+  fill: var(--visited);
+}
+
+svg.map path.country.sel:hover,
+svg.map path.state.sel:hover {
+  fill: var(--visited-hover);
+}
+
+svg.map path.country.partial {
+  fill: var(--partial);
+}
+
+/* Regions are drawn on top, so the country shape only supplies the outline. */
+svg.map path.country.expanded {
+  fill: none;
+  pointer-events: none;
+}
+
+svg.map .pin {
+  cursor: pointer;
+}
+
+svg.map .pin-halo {
+  fill: var(--pin-halo);
+}
+
+svg.map .pin-dot {
+  fill: var(--pin);
+  stroke: var(--panel);
+  stroke-width: 1.2;
+}
+
+.split-btn {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 50%;
+  box-shadow: var(--shadow);
+  opacity: 0.9;
+}
+
+.split-btn:hover {
+  opacity: 1;
+  filter: brightness(1.1);
+}
+
+.city-popup {
+  position: absolute;
+  z-index: 5;
+  /* Sits just above the pin, with the tail pointing down at it. */
+  transform: translate(-50%, calc(-100% - 12px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 8px 7px 12px;
+  box-shadow: var(--shadow);
+}
+
+.city-popup::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--panel);
+}
+
+.city-popup-name {
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.city-popup-remove {
+  flex: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--danger);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
+  border-radius: 7px;
+  padding: 3px 9px;
+}
+
+.city-popup-remove:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.city-popup-close {
+  flex: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 50%;
+}
+
+.city-popup-close:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.map-tooltip {
+  position: absolute;
+  z-index: 4;
+  transform: translate(12px, -130%);
+  pointer-events: none;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 7px;
+  box-shadow: var(--shadow);
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The stats and the share box always stay put; the two lists give up their
+   height first, so nothing in the sidebar is ever pushed out of sight. */
+.stats,
+.card-share {
+  flex: none;
+}
+
+.card-cities {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-places {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.stat-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-align: center;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 0 0 10px;
+}
+
+/* ---------- city combobox ---------- */
+
+.combo {
+  position: relative;
+}
+
+.combo input {
+  width: 100%;
+}
+
+.results {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.results li {
+  padding: 7px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.results li[aria-selected="true"],
+.results li:hover {
+  background: var(--panel-2);
+}
+
+.results li .cc {
+  font-size: 11px;
+  color: var(--muted);
+  flex: none;
+}
+
+.results li.empty {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* ---------- chips ---------- */
+
+.chips {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Pinned cities and selected places scroll inside their card rather than
+   pushing the page taller — the page itself must never scroll. */
+#city-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 132px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+#place-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chips:empty {
+  margin: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
+  max-width: 100%;
+}
+
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip.pin-chip {
+  border-color: color-mix(in srgb, var(--pin) 40%, var(--border));
+}
+
+.chip button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 50%;
+}
+
+.chip button:hover {
+  color: var(--danger);
+  background: var(--panel);
+}
+
+.chips-wrap .group {
+  margin-bottom: 10px;
+}
+
+.chips-wrap .group:last-child {
+  margin-bottom: 0;
+}
+
+.chips-wrap .group-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.group-unite {
+  flex: none;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.group-unite:hover {
+  text-decoration: underline;
+}
+
+/* ---------- share ---------- */
+
+.share-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.share-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--muted);
+}
+
+.share-row .btn {
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
