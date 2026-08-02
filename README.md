@@ -43,7 +43,7 @@ scripts/
   build-data.mjs   regenerates public/data/* from Natural Earth + GeoNames
 public/data/
   world.topo.json    248 countries, TopoJSON, localized names (ISO point of view)
-  admin1.topo.json   subdivisions for the countries that have them
+  admin1.topo.json   303 subdivisions: US 51, DE 16, RU 83, CH 26, FR 96, CN 31
   cities.json        ~235 000 places with search aliases
 ```
 

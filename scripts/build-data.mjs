@@ -12,7 +12,6 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 import { topology } from "topojson-server";
-import { presimplify, simplify, quantile } from "topojson-simplify";
 import { feature as topoFeature } from "topojson-client";
 import { geoContains } from "d3-geo";
 
@@ -418,7 +417,8 @@ async function buildCountries() {
 }
 
 // ---------------------------------------------------------------------------
-// OUTPUT 2: admin1.topo.json (Natural Earth 10m admin_1 states/provinces, US+DE only)
+// OUTPUT 2: admin1.topo.json (Natural Earth 10m admin_1 states/provinces:
+// US, DE, RU, CH, FR, CN)
 // ---------------------------------------------------------------------------
 
 async function buildAdmin1() {
@@ -428,26 +428,93 @@ async function buildAdmin1() {
 
   const raw = JSON.parse(await fsp.readFile(cachePath, "utf8"));
 
-  const features = raw.features.filter((f) => {
-    const iso2 = f.properties.iso_a2;
-    return iso2 === "US" || iso2 === "DE";
+  const TARGET_COUNTRIES = ["US", "DE", "RU", "CH", "FR", "CN"];
+  const idPattern = /^(US|DE|RU|CH|FR|CN)-[A-Z0-9]+$/;
+
+  // Rows we deliberately drop, with why -- reported at the end rather than
+  // silently discarded, per the France/China territorial-scope requirements.
+  const excluded = [];
+
+  const candidates = raw.features.filter((f) => {
+    const p = f.properties;
+    if (!TARGET_COUNTRIES.includes(p.iso_a2)) return false;
+
+    // France: NE's admin_1 for FR is départements (no région-level polygons
+    // in this file at all -- confirmed by inspecting every FR row's `type`/
+    // `type_en`, all either "Metropolitan département" or "Overseas
+    // département"). Keep départements, but drop the 5 overseas ones
+    // (Guyane française, Martinique, Guadeloupe, La Réunion, Mayotte) since
+    // they aren't part of any metropolitan région.
+    if (p.iso_a2 === "FR" && p.type && /overseas/i.test(p.type)) {
+      excluded.push({
+        reason: "FR overseas département (not part of a metropolitan région)",
+        name: p.name,
+        iso_3166_2: p.iso_3166_2,
+      });
+      return false;
+    }
+
+    return true;
   });
 
-  const idPattern = /^(US|DE)-[A-Z0-9]+$/;
+  // Taiwan, Hong Kong, and Macau are NOT mixed into "CN" in this dataset --
+  // Natural Earth gives them their own iso_a2 codes (TW, HK, MO
+  // respectively; Taiwan has 21 counties/cities, Hong Kong 18 districts,
+  // Macau 1), entirely separate from CN's 32 iso_a2=="CN" rows. Filtering by
+  // iso_a2 === "CN" above already excludes all of them without any extra
+  // logic; nothing to silently include or drop. Verified directly against
+  // the raw source.
+
   const usedIds = new Set();
   const failures = [];
+  const features = [];
 
-  for (const f of features) {
+  // NE's iso_3166_2 for Moscow city vs. Moscow oblast is swapped relative to
+  // the real ISO 3166-2:RU standard (RU-MOW is the federal city of Moscow;
+  // RU-MOS is Moskovskaya oblast, the surrounding region -- cross-checked
+  // against ISO 3166-2:RU, and consistent with the file's own St. Petersburg
+  // pair, which is correct: city=RU-SPE, oblast=RU-LEN). NE's row named
+  // "Moskva" (the city, type "Federal City") carries iso_3166_2="RU-MOS",
+  // and the row named "Moskovskaya" (the oblast, type "Region") carries
+  // "RU-MOW" -- exactly backwards. Verified directly: swapping these two is
+  // the only way Moscow-the-city resolves to RU-MOW as ISO 3166-2 requires.
+  const ISO_3166_2_OVERRIDES = {
+    Moskva: "RU-MOW",
+    Moskovskaya: "RU-MOS",
+  };
+
+  for (const f of candidates) {
     const p = f.properties;
-    const country = p.iso_a2 === "US" ? "US" : "DE";
-    let id = p.iso_3166_2;
-    if (id) id = String(id).toUpperCase();
+    const country = p.iso_a2;
+    let id = ISO_3166_2_OVERRIDES[p.name] ?? (p.iso_3166_2 ? String(p.iso_3166_2).toUpperCase() : null);
 
-    if (!id || usedIds.has(id) || !idPattern.test(id)) {
-      failures.push({ name: p.name, iso_3166_2: p.iso_3166_2, id });
-    } else {
-      usedIds.add(id);
+    // Two known cases of iso_3166_2 not agreeing with iso_a2's grouping,
+    // both excluded here (not hard failures):
+    //  - RU has two rows for Crimea/Sevastopol grouped under iso_a2=="RU"
+    //    (the de-facto Russian claim), but their own iso_3166_2 codes are
+    //    "UA-43"/"UA-40" (Ukraine's ISO codes) -- consistent with the same
+    //    ISO-POV fix applied to world.topo.json, these are excluded from
+    //    the RU set rather than drawn as Russian subdivisions.
+    //  - RU and CN each have one placeholder row for disputed/unofficial
+    //    territory (Russia: an unnamed row; China: "Paracel Islands") whose
+    //    iso_3166_2 is a non-ISO placeholder like "RU-X01~"/"CN-X01~" (NE's
+    //    convention for "no real code", note the trailing "~"). These fail
+    //    idPattern (the "~" isn't in [A-Z0-9]) and are excluded.
+    if (!id || !idPattern.test(id) || !id.startsWith(`${country}-`)) {
+      excluded.push({
+        reason: "invalid/non-ISO iso_3166_2, or country-code mismatch (e.g. Crimea/Sevastopol carrying UA-* codes)",
+        name: p.name,
+        iso_a2: p.iso_a2,
+        iso_3166_2: p.iso_3166_2,
+      });
+      continue;
     }
+
+    if (usedIds.has(id)) {
+      failures.push({ name: p.name, iso_3166_2: p.iso_3166_2, id, reason: "duplicate id" });
+      continue;
+    }
+    usedIds.add(id);
 
     const nameEn = p.name_en || p.name;
     f.id = id;
@@ -457,63 +524,54 @@ async function buildAdmin1() {
       name_fr: p.name_fr || nameEn,
       country,
     };
+    features.push(f);
   }
-
-  const usFeatures = features.filter((f) => f.properties.country === "US");
-  const deFeatures = features.filter((f) => f.properties.country === "DE");
 
   if (failures.length > 0) {
     console.error("FAILURES (admin1 missing/duplicate/invalid id):", failures);
     throw new Error(`${failures.length} admin1 feature(s) failed id assignment`);
   }
+
+  console.log(`[admin1] excluded ${excluded.length} row(s):`);
+  for (const e of excluded) console.log("  ", JSON.stringify(e));
+
+  const countsByCountry = {};
+  for (const f of features) {
+    countsByCountry[f.properties.country] = (countsByCountry[f.properties.country] || 0) + 1;
+  }
+  console.log("[admin1] per-country feature counts:", JSON.stringify(countsByCountry));
+
+  const usFeatures = features.filter((f) => f.properties.country === "US");
+  const deFeatures = features.filter((f) => f.properties.country === "DE");
+
+  // US and DE are unchanged from before -- keep the exact hard assertions.
   if (usFeatures.length !== 51) {
     throw new Error(`Expected exactly 51 US features, got ${usFeatures.length}`);
   }
   if (deFeatures.length !== 16) {
     throw new Error(`Expected exactly 16 DE features, got ${deFeatures.length}`);
   }
-  if (usedIds.size !== 67) {
-    throw new Error(`Expected exactly 67 unique ids, got ${usedIds.size}`);
+  // CH (26 cantons) is also a stable, well-known count -- hard assert it too.
+  if (countsByCountry.CH !== 26) {
+    throw new Error(`Expected exactly 26 CH features, got ${countsByCountry.CH}`);
   }
+  // RU, FR, CN counts vary with the NE vintage -- reported above, not asserted.
 
   const fc = { type: "FeatureCollection", features };
 
-  // Build topology, then presimplify+simplify with increasing weight until
-  // the output is comfortably under 1.5MB, still visually recognizable.
-  let topo = topology({ states: fc }, 1e5);
-  topo = presimplify(topo);
+  // Same trap as world.topo.json: presimplify()/simplify() destroy small
+  // geometry (see the extensive notes in buildCountries above) and file
+  // size is not a constraint here either (up to ~15MB is fine). So: no
+  // simplification, quantization only, at 1e6 (already proven safe against
+  // the winding-inversion failure mode for world.topo.json's small islands).
+  const QUANT = 1e6;
+  const topo = topology({ states: fc }, QUANT);
 
-  const candidateWeights = [
-    0, 1e-9, 3e-9, 1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3,
-  ];
-  let outPath = path.join(DATA_DIR, "admin1.topo.json");
-  let finalTopo = null;
-  let finalSize = Infinity;
-
-  for (const w of candidateWeights) {
-    const simplified = w === 0 ? topo : simplify(topo, w);
-    const json = JSON.stringify(simplified);
-    const size = Buffer.byteLength(json, "utf8");
-    console.log(`[admin1 simplify] weight=${w} -> ${fmtBytes(size)}`);
-    finalTopo = simplified;
-    finalSize = size;
-    // Target comfortably under the 1.5MB budget so future data tweaks don't
-    // tip it over; stop once we're under ~1.2MB.
-    if (size < 1.2 * 1024 * 1024) {
-      break;
-    }
-  }
-
-  if (finalSize >= 1.5 * 1024 * 1024) {
-    console.warn(
-      `[admin1] WARNING: could not get under 1.5MB with tested weights, final size ${fmtBytes(finalSize)}`
-    );
-  }
-
-  await fsp.writeFile(outPath, JSON.stringify(finalTopo));
+  const outPath = path.join(DATA_DIR, "admin1.topo.json");
+  await fsp.writeFile(outPath, JSON.stringify(topo));
   const size = (await fsp.stat(outPath)).size;
   console.log(
-    `[admin1.topo.json] ${usFeatures.length} US + ${deFeatures.length} DE = ${features.length} features, ${fmtBytes(size)}`
+    `[admin1.topo.json] quant=${QUANT} (no simplification), ${features.length} features, ${fmtBytes(size)}`
   );
 
   return {
@@ -521,7 +579,9 @@ async function buildAdmin1() {
     size,
     usCount: usFeatures.length,
     deCount: deFeatures.length,
-    topo: finalTopo,
+    countsByCountry,
+    excluded,
+    topo,
   };
 }
 
@@ -797,6 +857,127 @@ function runGeoContainsChecks(countriesFc) {
   return rows;
 }
 
+function assertAdmin1Integrity(admin1Fc) {
+  const idPattern = /^(US|DE|RU|CH|FR|CN)-/;
+  const seen = new Set();
+  const problems = [];
+
+  for (const f of admin1Fc.features) {
+    if (!f.id) problems.push(`empty id (name=${f.properties?.name})`);
+    else if (seen.has(f.id)) problems.push(`duplicate id ${f.id}`);
+    else seen.add(f.id);
+
+    if (f.id && !idPattern.test(f.id)) problems.push(`id ${f.id} doesn't match /^(US|DE|RU|CH|FR|CN)-/`);
+
+    const g = f.geometry;
+    const coords = g && (g.type === "Polygon" || g.type === "MultiPolygon") ? g.coordinates : null;
+    const nonEmpty = Array.isArray(coords) && coords.length > 0 && coords[0]?.length > 0 && coords[0][0]?.length > 0;
+    if (!nonEmpty) problems.push(`empty/missing geometry for id ${f.id}`);
+  }
+
+  // Winding-inversion check: three points far from all six admin1 target
+  // countries (mid South Atlantic, southern Indian Ocean, mid South
+  // Pacific). No real US/DE/RU/CH/FR/CN subdivision should ever contain any
+  // of these -- if one does, a ring's winding got flipped (the same failure
+  // mode found and fixed in world.topo.json at low quantization).
+  const FAR_SENTINELS = [
+    [-15, -30], // mid South Atlantic
+    [75, -40], // southern Indian Ocean
+    [-140, -20], // mid South Pacific
+  ];
+  const spurious = [];
+  for (const f of admin1Fc.features) {
+    for (const pt of FAR_SENTINELS) {
+      if (geoContains(f, pt)) spurious.push(`${f.id} spuriously contains ${JSON.stringify(pt)}`);
+    }
+  }
+
+  console.log(`\n[verify] admin1.topo.json: checked ${admin1Fc.features.length} features`);
+  if (problems.length > 0) {
+    console.error("[verify] admin1.topo.json PROBLEMS:", problems);
+  } else {
+    console.log("[verify] admin1.topo.json: all ids unique, non-empty, correctly prefixed; all geometry non-empty");
+  }
+  if (spurious.length > 0) {
+    console.error("[verify] admin1.topo.json WINDING FAILURES:", spurious);
+  } else {
+    console.log("[verify] admin1.topo.json: no feature spuriously contains a far-away sentinel point (winding OK)");
+  }
+
+  if (problems.length > 0 || spurious.length > 0) {
+    throw new Error(
+      `admin1.topo.json integrity check failed: ${problems.length} id/geometry problem(s), ${spurious.length} winding failure(s)`
+    );
+  }
+}
+
+function runAdmin1GeoContainsChecks(admin1Fc) {
+  const POINTS = [
+    { name: "Moscow", lonLat: [37.62, 55.75], want: "RU-MOW" },
+    { name: "Saint Petersburg", lonLat: [30.31, 59.94], want: "RU-SPE" },
+    { name: "Kazan", lonLat: [49.11, 55.79], want: "RU-TA" },
+    { name: "Sochi", lonLat: [39.73, 43.6], want: "RU-KDA" },
+    { name: "Kaliningrad", lonLat: [20.51, 54.71], want: "RU-KGD" },
+    { name: "Vladivostok", lonLat: [131.89, 43.12], want: "RU-PRI" },
+    { name: "Zurich", lonLat: [8.54, 47.37], want: "CH-ZH" },
+    { name: "Geneva", lonLat: [6.14, 46.2], want: "CH-GE" },
+    { name: "Lausanne", lonLat: [6.63, 46.52], want: "CH-VD" },
+    { name: "Paris", lonLat: [2.35, 48.86], want: null },
+    { name: "Strasbourg", lonLat: [7.75, 48.57], want: null },
+    { name: "Chamonix", lonLat: [6.87, 45.92], want: null },
+    { name: "Beijing", lonLat: [116.4, 39.9], want: "CN-BJ" },
+    { name: "Shanghai", lonLat: [121.47, 31.23], want: "CN-SH" },
+    { name: "Lhasa", lonLat: [91.14, 29.65], want: "CN-XZ" },
+    { name: "Los Angeles", lonLat: [-118.24, 34.05], want: "US-CA" },
+    { name: "Munich", lonLat: [11.58, 48.14], want: "DE-BY" },
+    { name: "Berlin", lonLat: [13.4, 52.52], want: "DE-BE" },
+  ];
+
+  const rows = [];
+  let hardFail = false;
+
+  for (const pt of POINTS) {
+    const containedBy = admin1Fc.features.filter((f) => geoContains(f, pt.lonLat)).map((f) => f.id);
+
+    if (pt.want === null) {
+      // French département ids depend on what NE ships -- just report which
+      // feature(s) contain the point rather than asserting an exact id.
+      const names = admin1Fc.features
+        .filter((f) => containedBy.includes(f.id))
+        .map((f) => `${f.id} (${f.properties.name})`);
+      const pass = names.length === 1;
+      if (!pass) hardFail = true;
+      rows.push({
+        name: pt.name,
+        lonLat: pt.lonLat,
+        status: pass ? "PASS" : "FAIL",
+        detail: `contained by: ${JSON.stringify(names)}`,
+      });
+      continue;
+    }
+
+    const pass = containedBy.length === 1 && containedBy[0] === pt.want;
+    if (!pass) hardFail = true;
+    rows.push({
+      name: pt.name,
+      lonLat: pt.lonLat,
+      status: pass ? "PASS" : "FAIL",
+      detail: `want=${pt.want} got=${JSON.stringify(containedBy)}`,
+    });
+  }
+
+  console.log("\n=== admin1 geoContains verification ===");
+  for (const r of rows) {
+    console.log(`${r.status.padEnd(6)} ${r.name.padEnd(18)} [${r.lonLat.join(", ")}]  ${r.detail}`);
+  }
+
+  if (hardFail) {
+    throw new Error("One or more admin1 geoContains check(s) FAILED (see table above)");
+  }
+
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
@@ -818,6 +999,12 @@ async function main() {
 
   const geoContainsRows = runGeoContainsChecks(countriesFc);
 
+  let admin1GeoContainsRows = null;
+  if (admin1Fc) {
+    assertAdmin1Integrity(admin1Fc);
+    admin1GeoContainsRows = runAdmin1GeoContainsChecks(admin1Fc);
+  }
+
   console.log("\n=== Report ===");
   console.log(`countries source: ${countries.sourceUrl}`);
   console.log(`world.topo.json: ${fmtBytes(countries.size)} (${countries.size} bytes), ${countries.count} countries`);
@@ -828,6 +1015,8 @@ async function main() {
     console.log(
       `admin1.topo.json: ${fmtBytes(admin1.size)} (${admin1.size} bytes), ${admin1.usCount} US states, ${admin1.deCount} DE states`
     );
+    console.log(`admin1.topo.json: per-country feature counts: ${JSON.stringify(admin1.countsByCountry)}`);
+    console.log(`admin1.topo.json: excluded rows: ${JSON.stringify(admin1.excluded)}`);
   }
   if (cities) {
     console.log(`cities.json: ${fmtBytes(cities.size)} (${cities.size} bytes), ${cities.count} cities`);
@@ -836,6 +1025,12 @@ async function main() {
   console.log("\ngeoContains PASS/FAIL table:");
   for (const r of geoContainsRows) {
     console.log(`  ${r.status.padEnd(9)} ${r.name.padEnd(16)} [${r.lonLat.join(", ")}]  ${r.detail}`);
+  }
+  if (admin1GeoContainsRows) {
+    console.log("\nadmin1 geoContains PASS/FAIL table:");
+    for (const r of admin1GeoContainsRows) {
+      console.log(`  ${r.status.padEnd(6)} ${r.name.padEnd(18)} [${r.lonLat.join(", ")}]  ${r.detail}`);
+    }
   }
 
   const sampleCountry = countriesFc.features[0];

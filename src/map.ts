@@ -53,6 +53,8 @@ export class MapView {
    *  split affordance can never promise regions that do not exist. */
   private splittable = new Set<string>();
   private anchors = new Map<string, [number, number]>();
+  /** Largest landmass per country, cached — see largestPart(). */
+  private parts = new Map<string, unknown>();
 
   private splitBtn!: HTMLButtonElement;
   private tooltip!: HTMLDivElement;
@@ -235,6 +237,7 @@ export class MapView {
     this.gCountries.selectAll<SVGPathElement, Feat>("path").attr("d", (d) => this.path(d) ?? "");
     this.gStates.selectAll<SVGPathElement, Feat>("path").attr("d", (d) => this.path(d) ?? "");
     this.anchors.clear();
+    this.parts.clear();
     this.placePins();
     this.positionSplitButton();
     this.positionCityPopup();
@@ -361,8 +364,8 @@ export class MapView {
    * feature drifts into the sea for countries with far-flung parts — Alaska
    * and Hawaii drag the USA's up towards Greenland.
    */
-  private anchorOf(f: Feat): [number, number] {
-    const hit = this.anchors.get(f.id);
+  private largestPart(f: Feat): unknown {
+    const hit = this.parts.get(f.id);
     if (hit) return hit;
     let best: unknown = f.geometry;
     if (f.geometry.type === "MultiPolygon") {
@@ -376,7 +379,14 @@ export class MapView {
         }
       }
     }
-    const c = this.path.centroid(best as never) as [number, number];
+    this.parts.set(f.id, best);
+    return best;
+  }
+
+  private anchorOf(f: Feat): [number, number] {
+    const hit = this.anchors.get(f.id);
+    if (hit) return hit;
+    const c = this.path.centroid(this.largestPart(f) as never) as [number, number];
     this.anchors.set(f.id, c);
     return c;
   }
@@ -399,7 +409,9 @@ export class MapView {
   zoomTo(cc: string) {
     const f = this.byCC.get(cc);
     if (!f) return;
-    const [[x0, y0], [x1, y1]] = this.path.bounds(f);
+    // Bounds of the biggest landmass only: France reaches to French Guiana
+    // and Reunion, so the full extent would zoom nowhere near the mainland.
+    const [[x0, y0], [x1, y1]] = this.path.bounds(this.largestPart(f) as never);
     const k = Math.min(60, 0.7 / Math.max((x1 - x0) / this.w, (y1 - y0) / this.h));
     const tx = this.w / 2 - (k * (x0 + x1)) / 2;
     const ty = this.h / 2 - (k * (y0 + y1)) / 2;
